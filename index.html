@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050a16">
+<title>Quantum QR — Liquid Glass Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<style>
+:root{
+  --bg:radial-gradient(circle at 10% 15%,#0f1b36 0%,#050a16 85%);
+  --glass:rgba(255,255,255,.045); --glass-2:rgba(255,255,255,.07); --line:rgba(255,255,255,.1); --shine:rgba(255,255,255,.14);
+  --text:#f1f5f9; --mut:#94a3b8; --accent:#38bdf8; --accent-2:#818cf8; --on-acc:#04111f;
+  --ok:#34d399; --warn:#fbbf24; --bad:#f87171;
+  --ease:cubic-bezier(.16,1,.3,1);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%;overflow-x:clip}
+body{background:var(--bg) fixed,#050a16;color:var(--text);min-height:100dvh;
+  font-family:'Plus Jakarta Sans','Noto Sans Thai',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;
+  display:flex;justify-content:center;align-items:flex-start;
+  padding:max(16px,env(safe-area-inset-top)) max(14px,env(safe-area-inset-right)) max(28px,env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left))}
+button,input,select,textarea{font:inherit;color:inherit}
+button{background:none;border:0;cursor:pointer;text-align:inherit}
+button:disabled{cursor:default;opacity:.45}
+[hidden]{display:none!important}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:10px}
+
+.orb{position:fixed;border-radius:50%;filter:blur(90px);opacity:.38;z-index:-1;pointer-events:none;animation:float 12s infinite alternate ease-in-out}
+.orb-1{width:320px;height:320px;background:#0284c7;top:6%;left:8%}
+.orb-2{width:380px;height:380px;background:#7c3aed;bottom:4%;right:6%;animation-delay:-6s}
+@keyframes float{to{transform:translateY(-34px) scale(1.06)}}
+
+.app{width:100%;min-width:0;max-width:940px;margin:auto;overflow-x:clip;background:var(--glass);
+  -webkit-backdrop-filter:blur(26px);backdrop-filter:blur(26px);border:1px solid var(--line);border-radius:30px;
+  padding:20px;box-shadow:0 30px 60px -20px rgba(0,0,0,.6),inset 0 1px 0 var(--shine)}
+
+/* header */
+.hd{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.logo{margin-right:auto;min-width:0}
+.logo h1{font-size:1.2rem;font-weight:700;letter-spacing:-.4px;background:linear-gradient(135deg,#fff 35%,var(--mut));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.logo p{font-size:.75rem;color:var(--mut)}
+.pill-btn{height:40px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--glass-2);display:flex;align-items:center;gap:8px;
+  font-size:.82rem;font-weight:600;transition:background .2s,transform .2s var(--ease)}
+.pill-btn:active{transform:scale(.97)}
+.pill-btn svg{transition:transform .35s var(--ease)}
+.min .tgl svg{transform:rotate(180deg)}
+.icon-btn{width:40px;height:40px;padding:0;justify-content:center}
+
+/* layout */
+.layout{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+.layout>*,.tools-in>*,.acc-b>*,.pv-side>*,.ci>*{min-width:0}
+.min .layout{justify-content:center}
+
+/* preview */
+.preview{position:sticky;top:max(8px,env(safe-area-inset-top));z-index:6;display:grid;grid-template-columns:132px minmax(0,1fr);gap:14px;align-items:center;
+  padding:12px;border-radius:22px;border:1px solid var(--line);background:rgba(10,16,32,.92);box-shadow:0 12px 30px rgba(0,0,0,.35)}
+.qr-frame{position:relative;width:100%;aspect-ratio:1;border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 8px 22px rgba(0,0,0,.35);user-select:none}
+.qr-frame.checker{background:conic-gradient(#d4d4d8 25%,#fff 0 50%,#d4d4d8 0 75%,#fff 0) 0 0/16px 16px}
+.qr-frame img{display:block;width:100%;height:100%;-webkit-touch-callout:default;transition:opacity .2s}
+.qr-frame.loading img{opacity:.35}
+.qr-empty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:12px;font-size:.75rem;color:#64748b;background:#f1f5f9}
+.pv-side{display:flex;flex-direction:column;gap:9px;min-width:0}
+.status{display:flex;align-items:flex-start;gap:8px;font-size:.78rem;line-height:1.45;color:var(--mut)}
+.status i{flex:none;width:8px;height:8px;border-radius:50%;margin-top:6px;background:var(--mut);box-shadow:0 0 10px currentColor}
+.status[data-k="ok"]{color:var(--ok)}.status[data-k="ok"] i{background:var(--ok)}
+.status[data-k="warn"]{color:var(--warn)}.status[data-k="warn"] i{background:var(--warn)}
+.status[data-k="bad"]{color:var(--bad)}.status[data-k="bad"] i{background:var(--bad)}
+.meta{font-size:.72rem;color:var(--mut)}
+.btn{height:44px;padding:0 16px;border-radius:14px;border:1px solid var(--line);background:var(--glass-2);display:flex;align-items:center;justify-content:center;gap:8px;
+  font-weight:600;font-size:.88rem;transition:background .2s,transform .2s var(--ease)}
+.btn:active:not(:disabled){transform:scale(.97)}
+.btn.primary{border:0;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:var(--on-acc);box-shadow:0 8px 22px rgba(56,189,248,.28)}
+.row3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.row3 .btn{height:40px;padding:0 6px;font-size:.78rem;gap:6px}
+.hint{display:none;font-size:.74rem;color:var(--mut);text-align:center;grid-column:1/-1}
+
+/* tools */
+.col{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:0fr;visibility:hidden;transition:grid-template-rows .4s var(--ease),visibility 0s linear .4s}
+.open>.col{grid-template-rows:1fr;visibility:visible;transition-delay:0s}
+.col>.ci{overflow:hidden;min-height:0}
+.tools-in{display:flex;flex-direction:column;gap:14px;padding:0}
+label,.lbl{display:block;font-size:.78rem;font-weight:600;color:var(--mut);margin:0 0 8px 0}
+.field{position:relative}
+input[type=text],input[type=password],textarea,select{width:100%;background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:14px;padding:0 14px;height:48px;
+  font-size:16px;outline:none;transition:border-color .2s,box-shadow .2s;box-shadow:inset 0 2px 4px rgba(0,0,0,.2)}
+textarea{height:auto;min-height:92px;padding:12px 14px;resize:vertical;line-height:1.5}
+input:focus,textarea:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(56,189,248,.18),inset 0 2px 4px rgba(0,0,0,.2)}
+select{appearance:none;-webkit-appearance:none;padding-right:38px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center}
+select option{background:#0f172a;color:var(--text)}
+.field .x{position:absolute;right:5px;top:6px;width:36px;height:36px;display:grid;place-items:center;border-radius:50%;color:var(--mut)}
+.field input.px{padding-right:50px}
+.field .eye{position:absolute;right:6px;top:6px;height:36px;padding:0 10px;border-radius:10px;font-size:.75rem;font-weight:600;color:var(--mut)}
+.help{font-size:.74rem;color:var(--mut);margin:6px 0 0 0}
+.help.bad{color:var(--bad)}
+.help:empty{display:none}
+.check{display:flex;align-items:center;gap:10px;font-size:.85rem;cursor:pointer;min-height:44px}
+.check input{width:20px;height:20px;accent-color:var(--accent)}
+.stack{display:flex;flex-direction:column;gap:12px}
+
+.seg{display:flex;gap:3px;padding:3px;background:rgba(0,0,0,.28);border:1px solid var(--line);border-radius:15px}
+.seg button{flex:1;height:40px;border-radius:12px;font-size:.84rem;font-weight:600;color:var(--mut);display:grid;place-items:center;transition:all .25s var(--ease);text-align:center;line-height:1.1}
+.seg button small{display:block;font-size:.66rem;font-weight:500;opacity:.8}
+.seg button.on{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:var(--on-acc);box-shadow:0 4px 14px rgba(56,189,248,.25)}
+
+/* accordion */
+.acc{border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.025);overflow:hidden}
+.acc-h{width:100%;min-height:54px;padding:0 16px;display:flex;align-items:center;gap:10px;font-weight:600;font-size:.9rem}
+.acc-h .s{margin-left:auto;font-size:.75rem;font-weight:500;color:var(--mut)}
+.acc-h .chev{display:grid;color:var(--mut);transition:transform .3s var(--ease)}
+.acc.open>.acc-h .chev{transform:rotate(180deg)}
+.acc-b{padding:2px 16px 16px;display:flex;flex-direction:column;gap:18px}
+
+.presets{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:12px}
+.sw{width:100%;max-width:64px;aspect-ratio:1;justify-self:center;border-radius:14px;padding:7px;position:relative;display:grid;place-items:center;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);transition:transform .2s var(--ease),box-shadow .2s}
+.sw svg{width:100%;height:100%;display:block;border-radius:6px}
+.sw:active{transform:scale(.92)}
+.sw.on{box-shadow:0 0 0 2px #050a16,0 0 0 4px var(--accent)}
+.sw.on::after{content:"";position:absolute;right:-4px;top:-4px;width:16px;height:16px;border-radius:50%;background:var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2304111f' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12 5 5 9-10'/%3E%3C/svg%3E") center/10px no-repeat}
+.colors{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.cp{display:flex;align-items:center;gap:10px;height:48px;padding:0 10px;background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:14px}
+.cp input[type=color]{-webkit-appearance:none;appearance:none;border:0;width:30px;height:30px;border-radius:50%;background:none;cursor:pointer;padding:0;flex:none}
+.cp input[type=color]::-webkit-color-swatch-wrapper{padding:0}
+.cp input[type=color]::-webkit-color-swatch{border:2px solid rgba(255,255,255,.35);border-radius:50%}
+.cp input[type=color]::-moz-color-swatch{border:2px solid rgba(255,255,255,.35);border-radius:50%}
+.cp input[type=text]{border:0;background:none;box-shadow:none;height:100%;padding:0;font-size:.85rem;text-transform:uppercase;letter-spacing:.3px;min-width:0}
+.cp input[type=text]:focus{box-shadow:none}
+.cp.bad{border-color:var(--bad)}
+.styles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.st{display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 6px;border-radius:16px;border:1px solid var(--line);background:rgba(0,0,0,.2);font-size:.78rem;font-weight:600;color:var(--mut);transition:all .25s var(--ease)}
+.st svg{width:44px;height:44px;background:#fff;border-radius:8px;padding:4px}
+.st.on{border-color:var(--accent);color:var(--text);background:rgba(56,189,248,.1);box-shadow:0 0 18px rgba(56,189,248,.15)}
+.range{display:flex;align-items:center;gap:12px}
+input[type=range]{flex:1;height:32px;accent-color:var(--accent);background:none;border:0;box-shadow:none;padding:0}
+.range output{min-width:54px;text-align:right;font-size:.82rem;font-weight:600}
+.lvl-note{font-size:.74rem;color:var(--mut);margin:8px 0 0 0}
+
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,20px);max-width:calc(100% - 32px);
+  background:#e2e8f0;color:#0f172a;padding:11px 18px;border-radius:999px;font-size:.85rem;font-weight:600;box-shadow:0 12px 30px rgba(0,0,0,.4);
+  opacity:0;pointer-events:none;transition:opacity .25s,transform .35s var(--ease);z-index:50}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+@media(hover:hover){
+  .pill-btn:hover,.btn:hover:not(:disabled):not(.primary){background:rgba(255,255,255,.12)}
+  .btn.primary:hover{filter:brightness(1.08)}
+  .st:hover:not(.on),.acc-h:hover{background:rgba(255,255,255,.04)}
+  .seg button:not(.on):hover{color:var(--text)}
+  .sw:hover{transform:scale(1.08)}
+}
+@media(min-width:880px){
+  .app{padding:28px}
+  .layout{grid-template-columns:330px minmax(0,1fr);gap:28px;align-items:start}
+  .min .layout{grid-template-columns:minmax(0,340px)}
+  .preview{display:flex;flex-direction:column;align-items:stretch;gap:14px;padding:18px;top:24px;background:var(--glass)}
+  .hint{display:block}
+  .status{justify-content:center;text-align:center}
+  .pv-side{gap:10px}
+}
+@media(max-width:380px){.colors{grid-template-columns:1fr}.preview{grid-template-columns:112px 1fr}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div class="orb orb-1"></div><div class="orb orb-2"></div>
+
+<main class="app" id="app">
+  <header class="hd">
+    <div class="logo"><h1>Quantum QR</h1><p>Liquid Glass Generator</p></div>
+    <button class="pill-btn icon-btn" id="reset" aria-label="รีเซ็ตการตั้งค่า" title="รีเซ็ต">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+    </button>
+    <button class="pill-btn tgl" id="tgl" aria-expanded="true" aria-controls="tools">
+      <span id="tglLabel">ซ่อนเครื่องมือ</span>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+    </button>
+  </header>
+
+  <div class="layout">
+    <section class="preview" aria-label="ตัวอย่างคิวอาร์โค้ด">
+      <div class="qr-frame" id="frame">
+        <img id="qrImg" alt="QR Code" draggable="false" hidden>
+        <div class="qr-empty" id="qrEmpty">กรอกข้อมูลเพื่อสร้างคิวอาร์โค้ด</div>
+      </div>
+      <div class="pv-side">
+        <div class="status" id="status" role="status" aria-live="polite" data-k=""><i></i><span id="statusTxt">รอข้อมูล</span></div>
+        <div class="meta" id="meta"></div>
+        <button class="btn primary" id="dl" disabled>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 20h16"/></svg>บันทึก PNG
+        </button>
+        <div class="row3">
+          <button class="btn" id="dlSvg" disabled>SVG</button>
+          <button class="btn" id="copy" disabled>คัดลอก</button>
+          <button class="btn" id="share" disabled hidden>แชร์</button>
+        </div>
+      </div>
+      <p class="hint">กดค้างที่รูปคิวอาร์โค้ดเพื่อบันทึกลงมือถือได้เช่นกัน</p>
+    </section>
+
+    <section class="tools open" id="tools" aria-label="เครื่องมือปรับแต่ง">
+      <div class="col"><div class="ci"><div class="tools-in">
+
+        <div class="seg" id="tabs" role="group" aria-label="ประเภทข้อมูล">
+          <button data-type="url">ลิงก์</button><button data-type="text">ข้อความ</button><button data-type="wifi">Wi-Fi</button>
+        </div>
+
+        <div data-pane="url">
+          <label for="url">วางลิงก์ URL ของคุณ</label>
+          <div class="field"><input type="text" id="url" class="px" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://2rit.github.io/QuantumQr/">
+            <button class="x" data-clear="url" aria-label="ล้าง" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+          <p class="help" id="urlHelp"></p>
+        </div>
+
+        <div data-pane="text" hidden>
+          <label for="text">ข้อความ</label>
+          <textarea id="text" maxlength="800" placeholder="พิมพ์ข้อความที่ต้องการ"></textarea>
+          <p class="help"><span id="tcount">0</span>/800</p>
+        </div>
+
+        <div data-pane="wifi" hidden class="stack">
+          <div><label for="wssid">ชื่อเครือข่าย (SSID)</label><input type="text" id="wssid" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+          <div><label for="wpass">รหัสผ่าน</label>
+            <div class="field"><input type="password" id="wpass" class="px" autocomplete="off"><button class="eye" id="eye" type="button">แสดง</button></div></div>
+          <div><label for="wsec">การเข้ารหัส</label>
+            <select id="wsec"><option value="WPA">WPA/WPA2/WPA3</option><option value="WEP">WEP</option><option value="nopass">ไม่มีรหัสผ่าน</option></select></div>
+          <label class="check"><input type="checkbox" id="whid">เครือข่ายแบบซ่อน</label>
+        </div>
+
+        <div class="acc open" id="accColor">
+          <button class="acc-h" data-acc aria-expanded="true">สีและธีม<span class="s" id="colorSum"></span><span class="chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span></button>
+          <div class="col"><div class="ci"><div class="acc-b">
+            <div><span class="lbl">ธีมสำเร็จรูป</span><div class="presets" id="presets"></div></div>
+            <div class="colors">
+              <div><span class="lbl">สีคิวอาร์โค้ด</span><div class="cp" id="cpFg"><input type="color" id="fg" aria-label="สีคิวอาร์โค้ด"><input type="text" id="fgHex" maxlength="7" aria-label="รหัสสี" spellcheck="false" autocapitalize="off"></div></div>
+              <div><span class="lbl">สีพื้นหลัง</span><div class="cp" id="cpBg"><input type="color" id="bg" aria-label="สีพื้นหลัง"><input type="text" id="bgHex" maxlength="7" aria-label="รหัสสี" spellcheck="false" autocapitalize="off"></div></div>
+            </div>
+            <label class="check"><input type="checkbox" id="trans">พื้นหลังโปร่งใส (PNG/SVG)</label>
+          </div></div></div>
+        </div>
+
+        <div class="acc open" id="accStyle">
+          <button class="acc-h" data-acc aria-expanded="true">รูปแบบจุด<span class="s" id="styleSum"></span><span class="chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span></button>
+          <div class="col"><div class="ci"><div class="acc-b"><div class="styles" id="styles"></div></div></div></div>
+        </div>
+
+        <div class="acc" id="accAdv">
+          <button class="acc-h" data-acc aria-expanded="false">ขั้นสูง<span class="s" id="advSum"></span><span class="chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span></button>
+          <div class="col"><div class="ci"><div class="acc-b">
+            <div><span class="lbl">ระดับแก้ไขข้อผิดพลาด</span>
+              <div class="seg" id="levels"><button data-lv="L">L<small>7%</small></button><button data-lv="M">M<small>15%</small></button><button data-lv="Q">Q<small>25%</small></button><button data-lv="H">H<small>30%</small></button></div>
+              <p class="lvl-note" id="lvlNote"></p></div>
+            <div><label for="margin">ขอบว่างรอบคิวอาร์ (Quiet zone)</label><div class="range"><input type="range" id="margin" min="0" max="8" step="1"><output id="marginOut"></output></div></div>
+            <div><span class="lbl">ขนาดไฟล์ที่บันทึก</span>
+              <div class="seg" id="sizes"><button data-sz="512">512</button><button data-sz="1024">1024</button><button data-sz="2048">2048</button></div></div>
+          </div></div></div>
+        </div>
+
+      </div></div></div>
+    </section>
+  </div>
+</main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ---------- state ---------- */
+const KEY="quantum-qr-v3";
+const DEF={type:"url",url:"https://2rit.github.io/QuantumQr/",text:"",fg:"#0f172a",bg:"#ffffff",trans:false,style:"rounded",level:"M",margin:2,size:1024,min:false,accFg:true};
+const S=Object.assign({},DEF,{wifi:{ssid:"",pass:"",sec:"WPA",hidden:false}});
+try{const o=JSON.parse(localStorage.getItem(KEY)||"null");if(o)Object.keys(DEF).forEach(k=>{if(k in o)S[k]=o[k];});}catch(e){}
+function save(){try{const o={};Object.keys(DEF).forEach(k=>o[k]=S[k]);localStorage.setItem(KEY,JSON.stringify(o));}catch(e){}}
+
+const PRESETS=[["คลาสสิก","#0f172a","#ffffff"],["มหาสมุทร","#0369a1","#e0f2fe"],["ม่วงควอนตัม","#5b21b6","#ede9fe"],
+  ["มิ้นต์","#047857","#d1fae5"],["พระอาทิตย์ตก","#be123c","#ffe4e6"],["สีทอง","#78350f","#fef3c7"],["กราไฟต์","#374151","#f3f4f6"]];
+const STYLES={square:"สี่เหลี่ยม",rounded:"โค้งมน",dots:"จุดกลม"};
+const LVNOTE={L:"ไฟล์เล็กสุด เหมาะกับลิงก์สั้น ใช้บนหน้าจอ",M:"สมดุลที่สุด แนะนำสำหรับใช้งานทั่วไป",Q:"ทนรอยขีดข่วนและการพิมพ์ได้ดี",H:"ทนสูงสุด แต่จุดละเอียดขึ้น สแกนยากกว่าถ้าข้อมูลยาว"};
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+
+/* ---------- payload ---------- */
+function normUrl(v){return(/^[a-z][a-z0-9+.\-]*:/i.test(v)&&!/^[a-z0-9.\-]+:\d+/i.test(v))?v:"https://"+v;}
+function urlOk(u){try{const x=new URL(u);if(!/^https?:$/.test(x.protocol))return true;return x.hostname.includes(".")||x.hostname==="localhost";}catch(e){return false;}}
+const wesc=s=>s.replace(/([\\;,:"])/g,"\\$1");
+function payload(){
+  if(S.type==="url"){const v=S.url.trim();return v?normUrl(v):"";}
+  if(S.type==="text")return S.text.trim()?S.text:"";
+  const w=S.wifi;if(!w.ssid.trim())return"";
+  return "WIFI:T:"+w.sec+";S:"+wesc(w.ssid)+";"+(w.sec==="nopass"?"":"P:"+wesc(w.pass)+";")+(w.hidden?"H:true;":"")+";";
+}
+
+/* ---------- QR model & drawing ---------- */
+function makeModel(text,key){
+  const order=["H","Q","M","L"],start=order.indexOf(key);
+  for(let i=start;i<order.length;i++){
+    try{const h=document.createElement("div");
+      const q=new QRCode(h,{text:text,width:8,height:8,correctLevel:QRCode.CorrectLevel[order[i]]});
+      if(q._oQRCode)return{m:q._oQRCode,level:order[i],fell:i!==start};}catch(e){}
+  }
+  return null;
+}
+function rr(x,y,s,tl,tr,br,bl){
+  const A=(r,ex,ey)=>r?"A"+r+" "+r+" 0 0 1 "+ex+" "+ey:"";
+  return "M"+(x+tl)+" "+y+"H"+(x+s-tr)+A(tr,x+s,y+tr)+"V"+(y+s-br)+A(br,x+s-br,y+s)+"H"+(x+bl)+A(bl,x,y+s-bl)+"V"+(y+tl)+A(tl,x+tl,y)+"Z";
+}
+function buildPath(m,style,allStyled){
+  const n=m.getModuleCount(),on=(r,c)=>r>=0&&c>=0&&r<n&&c<n&&m.isDark(r,c);
+  const fin=(r,c)=>!allStyled&&((r<7&&c<7)||(r<7&&c>=n-7)||(r>=n-7&&c<7));
+  let d="";
+  for(let r=0;r<n;r++)for(let c=0;c<n;c++){
+    if(!on(r,c))continue;
+    if(style==="square"){d+="M"+c+" "+r+"h1v1h-1z";continue;}
+    if(style==="dots"&&!fin(r,c)){const cx=c+.5,cy=r+.5,k=.43;d+="M"+(cx-k)+" "+cy+"a"+k+" "+k+" 0 1 0 "+2*k+" 0a"+k+" "+k+" 0 1 0 "+(-2*k)+" 0Z";continue;}
+    const k=.42,u=on(r-1,c),dn=on(r+1,c),l=on(r,c-1),rt=on(r,c+1);
+    d+=rr(c,r,1,(!u&&!l)?k:0,(!u&&!rt)?k:0,(!dn&&!rt)?k:0,(!dn&&!l)?k:0);
+  }
+  return d;
+}
+let last=null;
+function toCanvas(target){
+  const tot=last.n+2*last.q,cell=Math.max(2,Math.floor(target/tot)),px=cell*tot;
+  const c=document.createElement("canvas");c.width=c.height=px;const x=c.getContext("2d");
+  if(!S.trans){x.fillStyle=S.bg;x.fillRect(0,0,px,px);}
+  x.scale(cell,cell);x.translate(last.q,last.q);x.fillStyle=S.fg;x.fill(new Path2D(last.d));
+  return c;
+}
+function svgString(){
+  const tot=last.n+2*last.q;
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+tot+' '+tot+'" width="'+S.size+'" height="'+S.size+'"'+(S.style==="square"?' shape-rendering="crispEdges"':"")+'>'+
+    (S.trans?"":'<rect width="'+tot+'" height="'+tot+'" fill="'+S.bg+'"/>')+
+    '<path transform="translate('+last.q+' '+last.q+')" fill="'+S.fg+'" d="'+last.d+'"/></svg>';
+}
+
+/* ---------- color helpers ---------- */
+const hexOk=v=>/^#[0-9a-f]{6}$/i.test(v);
+function lum(h){const f=i=>{const v=parseInt(h.slice(i,i+2),16)/255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4)};return .2126*f(1)+.7152*f(3)+.0722*f(5);}
+function contrast(a,b){const x=lum(a),y=lum(b);return(Math.max(x,y)+.05)/(Math.min(x,y)+.05);}
+
+/* ---------- render ---------- */
+let timer;
+function schedule(ms){clearTimeout(timer);$("#frame").classList.add("loading");timer=setTimeout(render,ms==null?130:ms);}
+function setStatus(k,msg){$("#status").dataset.k=k;$("#statusTxt").textContent=msg;}
+function actions(on){["#dl","#dlSvg","#copy","#share"].forEach(s=>{$(s).disabled=!on;});}
+function showEmpty(msg,bad){
+  last=null;$("#qrImg").hidden=true;$("#qrEmpty").hidden=false;$("#qrEmpty").textContent=msg;
+  $("#frame").classList.remove("loading","checker");$("#meta").textContent="";actions(false);
+  setStatus(bad?"bad":"","");$("#statusTxt").textContent=bad?msg:"รอข้อมูล";
+}
+function render(){
+  const p=payload();
+  if(!p){showEmpty("กรอกข้อมูลเพื่อสร้างคิวอาร์โค้ด");return;}
+  if(typeof QRCode==="undefined"){showEmpty("โหลดไลบรารีไม่สำเร็จ ตรวจสอบอินเทอร์เน็ตแล้วรีเฟรช",true);return;}
+  const r=makeModel(p,S.level);
+  if(!r){showEmpty("ข้อมูลยาวเกินไป ลองลดความยาวลง",true);return;}
+  last={d:buildPath(r.m,S.style),n:r.m.getModuleCount(),q:S.margin,level:r.level};
+  const img=$("#qrImg");img.src=toCanvas(600).toDataURL("image/png");img.hidden=false;$("#qrEmpty").hidden=true;
+  $("#frame").classList.remove("loading");$("#frame").classList.toggle("checker",S.trans);
+  actions(true);
+  // status
+  const notes=[],ratio=contrast(S.fg,S.bg),inv=lum(S.bg)<lum(S.fg);let k="ok";
+  if(!S.trans&&ratio<3){k="bad";notes.push("สีตัดกันน้อยเกินไป อาจสแกนไม่ติด");}
+  else if(!S.trans&&inv){k="warn";notes.push("พื้นเข้มกว่าจุด บางแอปสแกนไม่ได้");}
+  if(S.trans){if(k==="ok")k="warn";notes.push("พื้นโปร่งใส ตรวจสอบสีพื้นที่นำไปวาง");}
+  if(r.fell){if(k==="ok")k="warn";notes.push("ข้อมูลยาว ลดระดับแก้ไขเป็น "+r.level+" ให้อัตโนมัติ");}
+  if(last.n>=61&&k==="ok"){k="warn";notes.push("ข้อมูลเยอะ จุดละเอียด ควรพิมพ์ให้ใหญ่");}
+  if(S.style==="dots"&&(r.level==="L")&&k==="ok"){k="warn";notes.push("จุดกลมกับระดับ L สแกนยากขึ้น");}
+  if(S.type==="url"&&!urlOk(p)&&k==="ok"){k="warn";notes.push("ลิงก์นี้ดูไม่สมบูรณ์");}
+  setStatus(k,notes.length?notes[0]:"พร้อมสแกน");
+  $("#meta").textContent=last.n+"×"+last.n+" โมดูล · ระดับ "+r.level;
+}
+
+/* ---------- ui sync ---------- */
+function syncUI(){
+  $$("#tabs button").forEach(b=>b.classList.toggle("on",b.dataset.type===S.type));
+  $$("[data-pane]").forEach(p=>p.hidden=p.dataset.pane!==S.type);
+  $("#url").value=S.url;$("#text").value=S.text;$("#tcount").textContent=S.text.length;
+  $("#wssid").value=S.wifi.ssid;$("#wpass").value=S.wifi.pass;$("#wsec").value=S.wifi.sec;$("#whid").checked=S.wifi.hidden;
+  $("#wpass").closest(".field").parentElement.hidden=S.wifi.sec==="nopass";
+  $("[data-clear=url]").hidden=!S.url;urlHelp();
+  $("#fg").value=S.fg;$("#bg").value=S.bg;$("#fgHex").value=S.fg.toUpperCase();$("#bgHex").value=S.bg.toUpperCase();
+  $("#trans").checked=S.trans;$("#cpBg").style.opacity=S.trans?.45:1;
+  $$("#presets .sw").forEach(b=>b.classList.toggle("on",b.dataset.fg===S.fg&&b.dataset.bg===S.bg&&!S.trans));
+  $$("#styles .st").forEach(b=>b.classList.toggle("on",b.dataset.st===S.style));
+  $$("#levels button").forEach(b=>b.classList.toggle("on",b.dataset.lv===S.level));
+  $$("#sizes button").forEach(b=>b.classList.toggle("on",+b.dataset.sz===S.size));
+  $("#lvlNote").textContent=LVNOTE[S.level];
+  $("#margin").value=S.margin;$("#marginOut").textContent=S.margin+" โมดูล";
+  $("#colorSum").textContent=S.fg.toUpperCase()+" / "+(S.trans?"โปร่งใส":S.bg.toUpperCase());
+  $("#styleSum").textContent=STYLES[S.style];$("#advSum").textContent="ระดับ "+S.level+" · "+S.size+"px";
+  $("#app").classList.toggle("min",S.min);$("#tools").classList.toggle("open",!S.min);
+  $("#tgl").setAttribute("aria-expanded",!S.min);$("#tglLabel").textContent=S.min?"แสดงเครื่องมือ":"ซ่อนเครื่องมือ";
+}
+function urlHelp(){
+  const h=$("#urlHelp"),v=S.url.trim();h.classList.remove("bad");
+  if(!v){h.textContent="";return;}
+  const n=normUrl(v);
+  if(!urlOk(n)){h.textContent="รูปแบบลิงก์ดูไม่ถูกต้อง";h.classList.add("bad");return;}
+  h.textContent=n!==v?"ใช้ลิงก์: "+n:"";
+}
+function buildStatic(){
+  const pat={getModuleCount:()=>5,isDark:(r,c)=>["11011","10101","01110","10101","11011"][r][c]==="1"};
+  const pd=buildPath(pat,"rounded",true);
+  $("#presets").innerHTML=PRESETS.map(p=>'<button class="sw" data-fg="'+p[1]+'" data-bg="'+p[2]+'" aria-label="'+p[0]+'" title="'+p[0]+'" style="background:'+p[2]+'"><svg viewBox="0 0 5 5" aria-hidden="true"><path fill="'+p[1]+'" d="'+pd+'"/></svg></button>').join("");
+  const mock={getModuleCount:()=>7,isDark:(r,c)=>["1101011","1011101","0110110","1101001","0111011","1010110","1101101"][r][c]==="1"};
+  $("#styles").innerHTML=Object.keys(STYLES).map(k=>'<button class="st" data-st="'+k+'"><svg viewBox="0 0 7 7" aria-hidden="true"><path fill="#0f172a" d="'+buildPath(mock,k,true)+'"/></svg>'+STYLES[k]+'</button>').join("");
+}
+
+/* ---------- actions ---------- */
+let tt;function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("show"),2200);}
+function dl(blob,name){const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);}
+const fname=ext=>"qr-"+S.type+"-"+Date.now().toString(36)+"."+ext;
+const pngBlob=()=>new Promise(res=>toCanvas(S.size).toBlob(res,"image/png"));
+$("#dl").onclick=async()=>{if(!last)return;dl(await pngBlob(),fname("png"));toast("บันทึกรูป PNG แล้ว");};
+$("#dlSvg").onclick=()=>{if(!last)return;dl(new Blob([svgString()],{type:"image/svg+xml"}),fname("svg"));toast("บันทึกไฟล์ SVG แล้ว");};
+$("#copy").onclick=async()=>{if(!last)return;
+  try{await navigator.clipboard.write([new ClipboardItem({"image/png":pngBlob()})]);toast("คัดลอกรูปแล้ว");}
+  catch(e){toast("เบราว์เซอร์นี้คัดลอกรูปไม่ได้ ลองกดค้างที่รูปแทน");}};
+if(navigator.share&&navigator.canShare){$("#share").hidden=false;$("#share").onclick=async()=>{if(!last)return;
+  try{const f=new File([await pngBlob()],"qr.png",{type:"image/png"});
+    if(navigator.canShare({files:[f]}))await navigator.share({files:[f]});else toast("อุปกรณ์นี้แชร์รูปไม่ได้");}catch(e){}};}
+else $(".row3").style.gridTemplateColumns="repeat(2,1fr)";
+
+/* ---------- events ---------- */
+function setColor(which,v){S[which]=v.toLowerCase();syncUI();save();schedule(60);}
+$("#tabs").onclick=e=>{const b=e.target.closest("button");if(!b)return;S.type=b.dataset.type;syncUI();save();schedule(0);};
+$("#url").oninput=e=>{S.url=e.target.value;$("[data-clear=url]").hidden=!S.url;urlHelp();save();schedule();};
+$("[data-clear=url]").onclick=()=>{S.url="";syncUI();save();schedule(0);$("#url").focus();};
+$("#text").oninput=e=>{S.text=e.target.value;$("#tcount").textContent=S.text.length;save();schedule();};
+$("#wssid").oninput=e=>{S.wifi.ssid=e.target.value;schedule();};
+$("#wpass").oninput=e=>{S.wifi.pass=e.target.value;schedule();};
+$("#wsec").onchange=e=>{S.wifi.sec=e.target.value;syncUI();schedule(0);};
+$("#whid").onchange=e=>{S.wifi.hidden=e.target.checked;schedule(0);};
+$("#eye").onclick=e=>{const p=$("#wpass"),s=p.type==="password";p.type=s?"text":"password";e.target.textContent=s?"ซ่อน":"แสดง";};
+$("#fg").oninput=e=>setColor("fg",e.target.value);
+$("#bg").oninput=e=>setColor("bg",e.target.value);
+[["fgHex","fg","cpFg"],["bgHex","bg","cpBg"]].forEach(([id,k,box])=>{
+  $("#"+id).oninput=e=>{let v=e.target.value.trim();if(v&&v[0]!=="#")v="#"+v;
+    const ok=hexOk(v);$("#"+box).classList.toggle("bad",!ok&&v.length>1);
+    if(ok){S[k]=v.toLowerCase();$("#"+k).value=S[k];save();schedule(60);$$("#presets .sw").forEach(b=>b.classList.remove("on"));}};
+  $("#"+id).onblur=()=>{$("#"+box).classList.remove("bad");syncUI();};
+});
+$("#trans").onchange=e=>{S.trans=e.target.checked;syncUI();save();schedule(0);};
+$("#presets").onclick=e=>{const b=e.target.closest(".sw");if(!b)return;S.fg=b.dataset.fg;S.bg=b.dataset.bg;S.trans=false;syncUI();save();schedule(0);};
+$("#styles").onclick=e=>{const b=e.target.closest(".st");if(!b)return;S.style=b.dataset.st;syncUI();save();schedule(0);};
+$("#levels").onclick=e=>{const b=e.target.closest("button");if(!b)return;S.level=b.dataset.lv;syncUI();save();schedule(0);};
+$("#sizes").onclick=e=>{const b=e.target.closest("button");if(!b)return;S.size=+b.dataset.sz;syncUI();save();};
+$("#margin").oninput=e=>{S.margin=+e.target.value;$("#marginOut").textContent=S.margin+" โมดูล";save();schedule(40);};
+$$("[data-acc]").forEach(b=>b.onclick=()=>{const a=b.parentElement,o=a.classList.toggle("open");b.setAttribute("aria-expanded",o);});
+$("#tgl").onclick=()=>{S.min=!S.min;syncUI();save();};
+$("#reset").onclick=()=>{Object.assign(S,DEF,{wifi:{ssid:"",pass:"",sec:"WPA",hidden:false}});syncUI();save();schedule(0);toast("รีเซ็ตการตั้งค่าแล้ว");};
+document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.matches("#url,#wssid,#wpass"))e.target.blur();});
+
+/* ---------- init ---------- */
+buildStatic();syncUI();render();
+</script>
+</body>
+</html>
